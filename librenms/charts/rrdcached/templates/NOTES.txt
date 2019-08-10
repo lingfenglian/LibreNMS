@@ -1,0 +1,2 @@
+Rrdcached can be accessed via port 42217 on the following DNS name from within your cluster:
+{{ template "rrdcached.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local

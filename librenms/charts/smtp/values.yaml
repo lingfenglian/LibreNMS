@@ -1,0 +1,54 @@
+##
+image: juanluisbaptiste/postfix
+
+## Specify a imagePullPolicy
+## 'Always' if imageTag is 'latest', else set to 'IfNotPresent'
+## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+##
+imagePullPolicy: "IfNotPresent"
+#
+
+## Replica count
+replicaCount: 1
+
+
+## Select AntiAffinity as either hard or soft, default is hard
+AntiAffinity: "hard"
+
+## Define various attributes of the service
+serviceAnnotations: {}
+#  prometheus.io/scrape: "true"
+
+## Configure resource requests and limits
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+##
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 50m
+
+SERVER_HOSTNAME: librenms.example.com
+SMTP_SERVER: smtp.example.com
+SMTP_USERNAME: smtp@example.com
+SMTP_PASSWORD: "123456"
+
+persistence:
+  enabled: false
+  # Setting it to "keep" to avoid removing PVCs during a helm delete
+  # operation. Leaving it empty will delete PVCs after the chart deleted
+  resourcePolicy: "keep"
+  registry:
+  # Use the existing PVC which must be created manually before bound,
+  # and specify the "subPath" if the PVC is shared with other components
+  existingClaim: "" 
+  # Specify the "storageClass" used to provision the volume. Or the default
+  # StorageClass will be used(the default).
+  # Set it to "-" to disable dynamic provisioning
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  #
+nodeSelector: {}
+
+# To be added to the server pod(s)
+podAnnotations: {}

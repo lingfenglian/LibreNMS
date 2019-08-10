@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "smtp.fullname" . }}
+  labels:
+    app: {{ template "smtp.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  annotations:
+{{ toYaml .Values.serviceAnnotations | indent 4 }}
+spec:
+  clusterIP: None
+  ports:
+  - name: smtp
+    port: 42217
+    targetPort: smtp
+  selector:
+    app: {{ template "smtp.fullname" . }}

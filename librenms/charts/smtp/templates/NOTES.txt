@@ -1,0 +1,2 @@
+Memcached can be accessed via port 11211 on the following DNS name from within your cluster:
+{{ template "smtp.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
