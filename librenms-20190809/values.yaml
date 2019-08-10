@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: librenms
-  tag: v1.0
+  repository: librenms/librenms
+  tag: latest
   pullPolicy: IfNotPresent
 
 nameOverride: ""
