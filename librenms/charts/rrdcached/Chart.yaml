@@ -1,0 +1,10 @@
+appVersion: 1.1.0
+description: Free & open source
+icon: 
+keywords:
+- rrdcached
+- cache
+maintainers:
+  - name: wzg
+name: rrdcached
+version: 1.0.0

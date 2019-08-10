@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: {{ .Values.kind }}
+metadata:
+  name: {{ template "rrdcached.fullname" . }}
+  labels:
+    app: {{ template "rrdcached.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  serviceName: {{ template "rrdcached.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      release: "{{ .Release.Name }}"
+      app: {{ template "rrdcached.fullname" . }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ template "rrdcached.fullname" . }}
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+        release: "{{ .Release.Name }}"
+        heritage: "{{ .Release.Service }}"
+{{- with .Values.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      affinity:
+        podAntiAffinity:
+        {{- if eq .Values.AntiAffinity "hard" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: "kubernetes.io/hostname"
+            labelSelector:
+              matchLabels:
+                app:  {{ template "rrdcached.fullname" . }}
+                release: {{ .Release.Name | quote }}
+        {{- else if eq .Values.AntiAffinity "soft" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchLabels:
+                  app:  {{ template "rrdcached.fullname" . }}
+                  release: {{ .Release.Name | quote }}
+        {{- end }}
+      containers:
+      - name: {{ template "rrdcached.fullname" . }}
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ default "" .Values.imagePullPolicy | quote }}
+        env:
+        - name: FLUSH_DEAD_DATA_INTERVAL
+          value: "3600"
+        - name: LOG_LEVEL
+          value: "LOG_INFO"
+        - name: PGID
+          value: "1000"
+        - name: PUID
+          value: "1000"
+        - name: TZ
+          value: "Asia/Shanghai"
+        - name: WRITE_JITTER
+          value: "1800"
+        - name: WRITE_THREADS
+          value: "4"
+        - name: WRITE_TIMEOUT
+          value: "1800"
+        ports:
+        - name: rrdcache
+          containerPort: 42217
+          protocol: TCP
+        volumeMounts:
+        - name: rrd-db
+          mountPath: /data/db
+        - name: rrd-journal
+          mountPath: /data/journal
+        livenessProbe:
+          tcpSocket:
+            port: rrdcache
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: rrdcache
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+      {{- if not .Values.persistence.enabled }}
+      volumes:
+      - name: "rrd-db"
+        emptyDir: {}
+      - name: "rrd-journal"
+        emptyDir: {}
+      {{- else if .Values.persistence.existingClaim }}
+      volumes:
+      - name: "rrd-db"
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.existingClaim0 }}
+      - name: "rrd-journal"
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.existingClaim1 }}
+      {{- end -}}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+  volumeClaimTemplates:
+  - metadata:
+      name: "rrd-db"
+    spec:
+      accessModes: [{{ .Values.persistence.accessMode | quote }}]
+      {{- if .Values.persistence.storageClass }}
+      {{- if (eq "-" .Values.persistence.storageClass) }}
+      storageClassName: ""
+      {{- else }}
+      storageClassName: "{{ .Values.persistence.storageClass }}"
+      {{- end }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size | quote }}
+      selector:
+        matchLabels:
+          app: rrd
+  - metadata:
+      name: "rrd-journal"
+    spec:
+      accessModes: [{{ .Values.persistence.accessMode | quote }}]
+      {{- if .Values.persistence.storageClass }}
+      {{- if (eq "-" .Values.persistence.storageClass) }}
+      storageClassName: ""
+      {{- else }}
+      storageClassName: "{{ .Values.persistence.storageClass }}"
+      {{- end }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size | quote }}
+  {{- end -}}

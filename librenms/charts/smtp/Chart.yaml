@@ -1,0 +1,8 @@
+appVersion: 1.1.0
+description: Free & open source
+keywords:
+- smtp
+maintainers:
+  - name: wzg
+name: smtp
+version: 1.0.0

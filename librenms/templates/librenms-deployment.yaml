@@ -1,0 +1,193 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "librenms.fullname" . }}
+  labels:
+    app: {{ template "librenms.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "librenms.fullname" . }}
+      release: "{{ .Release.Name }}"
+  template:
+    metadata:
+    {{- if .Values.podAnnotations }}
+      annotations:
+{{ toYaml .Values.podAnnotations | indent 8 }}
+    {{- end }}
+      labels:
+        app: {{ template "librenms.fullname" . }}
+        release: "{{ .Release.Name }}"
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: librenms
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: DB_HOST
+          value: {{ include "mariadb.fullname" . | quote }} 
+        - name: DB_NAME
+          value: {{ .Values.mariadb.db.name | quote }}
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-password
+        - name: DB_TIMEOUT
+          value: "30"
+        - name: DB_USER
+          value: {{ .Values.mariadb.db.user |quote }}
+        - name: MEMCACHED_HOST
+          value: {{ include "memcached.fullname" . | quote }} 
+        - name: MEMCACHED_PORT
+          value: "11211"
+        - name: RRDCACHED_HOST
+          value: {{ include "rrdcached.fullname" . | quote }}
+        - name: RRDCACHED_PORT
+          value: "42217"
+        {{- range $key, $value := .Values.env }}
+        - name: "{{ $key }}"
+          value: "{{ $value }}"
+        {{- end }}
+        ports:
+        - name: librenms-http
+          containerPort: 80
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: librenms-data
+        - mountPath: /opt/librenms/html/plugins/
+          name: librenms-data
+      - name: cron
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: DB_HOST
+          value: {{ include "mariadb.fullname" . | quote }} 
+        - name: DB_NAME
+          value: {{ .Values.mariadb.db.name | quote }}
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-password
+        - name: DB_TIMEOUT
+          value: "30"
+        - name: DB_USER
+          value: {{ .Values.mariadb.db.user |quote }}
+        - name: MEMCACHED_HOST
+          value: {{ include "memcached.fullname" . | quote }} 
+        - name: MEMCACHED_PORT
+          value: "11211"
+        - name: RRDCACHED_HOST
+          value: {{ include "rrdcached.fullname" . | quote }}
+        - name: RRDCACHED_PORT
+          value: "42217"
+        - name: SIDECAR_CRON
+          value: "1"
+        {{- range $key, $value := .Values.env }}
+        - name: "{{ $key }}"
+          value: "{{ $value }}"
+        {{- end }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: librenms-data
+        - mountPath: /opt/librenms/html/plugins/
+          name: librenms-data
+      - name: syslog-ng
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: DB_HOST
+          value: {{ include "mariadb.fullname" . | quote }} 
+        - name: DB_NAME
+          value: {{ .Values.mariadb.db.name | quote }}
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "mariadb.fullname" . }}
+              key: mariadb-password
+        - name: DB_TIMEOUT
+          value: "30"
+        - name: DB_USER
+          value: {{ .Values.mariadb.db.user |quote }}
+        - name: MEMCACHED_HOST
+          value: {{ include "memcached.fullname" . | quote }} 
+        - name: MEMCACHED_PORT
+          value: "11211"
+        - name: RRDCACHED_HOST
+          value: {{ include "rrdcached.fullname" . | quote }}
+        - name: RRDCACHED_PORT
+          value: "42217"
+        - name: SIDECAR_SYSLOGNG
+          value: "1"
+        {{- range $key, $value := .Values.env }}
+        - name: "{{ $key }}"
+          value: "{{ $value }}"
+        {{- end }}
+        ports:
+        - name: syslog-ng-tcp
+          containerPort: 514
+          protocol: TCP
+        - name: syslog-ng-udp
+          containerPort: 514
+          protocol: UDP
+        readinessProbe:
+          tcpSocket:
+            port: 514
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 514
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: librenms-data
+        - mountPath: /opt/librenms/html/plugins/
+          name: librenms-data
+      {{- if .Values.persistence.enabled }}
+      volumes:
+      - name: "librenms-data"
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.existingClaim | default (include "librenms.fullname" .) }}
+      {{- else }}
+      volumes:
+      - name: "librenms-data"
+        emptyDir: {}
+      {{- end }}
+      hostname: librenms
+    {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+    {{- end }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}

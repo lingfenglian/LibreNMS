@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "rrdcached.fullname" . }}
+  labels:
+    app: {{ template "rrdcached.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  annotations:
+{{ toYaml .Values.serviceAnnotations | indent 4 }}
+spec:
+  clusterIP: None
+  ports:
+  - name: rrdcache
+    port: 42217
+    targetPort: rrdcache
+  selector:
+    app: {{ template "rrdcached.fullname" . }}
